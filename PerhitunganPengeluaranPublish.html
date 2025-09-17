@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Expense & Income Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}</style>
+</head>
+<body class="bg-slate-50 min-h-screen p-6">
+  <div class="max-w-5xl mx-auto">
+    <!-- header -->
+    <header class="mb-6">
+      <div class="bg-white rounded-2xl p-6 shadow-md flex items-center gap-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center text-white text-lg font-bold">¥</div>
+        <div>
+          <h1 class="text-2xl font-extrabold">Pencatatan Pemasukan & Pengeluaran</h1>
+          <p class="text-sm text-slate-500">Simpan catatan, lihat ringkasan, dan ekspor ke Excel (.xlsx)</p>
+        </div>
+        <div id="userControls" class="ml-auto text-sm"></div>
+      </div>
+    </header>
+
+    <!-- main -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- form -->
+      <section class="lg:col-span-1">
+        <div class="bg-white rounded-2xl p-6 shadow-sm">
+          <h2 class="font-semibold text-lg mb-4">Tambah Transaksi</h2>
+          <form id="entryForm" class="space-y-3">
+            <div>
+              <label class="text-sm">Tanggal</label>
+              <input id="date" type="date" class="w-full mt-1 p-2 border rounded-md" required>
+            </div>
+            <div>
+              <label class="text-sm">Tipe</label>
+              <select id="type" class="w-full mt-1 p-2 border rounded-md">
+                <option value="expense">Pengeluaran</option>
+                <option value="income">Pemasukan</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm">Kategori</label>
+              <input id="category" placeholder="Misal: Makan / Gaji / Transport" class="w-full mt-1 p-2 border rounded-md">
+            </div>
+            <div>
+              <label class="text-sm">Jumlah (Rp)</label>
+              <input id="amount" type="number" min="0" step="1" placeholder="0" class="w-full mt-1 p-2 border rounded-md" required>
+            </div>
+            <div>
+              <label class="text-sm">Catatan (opsional)</label>
+              <input id="note" placeholder="Catatan singkat" class="w-full mt-1 p-2 border rounded-md">
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button id="saveBtn" type="submit" class="flex-1 bg-indigo-600 text-white p-2 rounded-lg font-semibold">Simpan</button>
+              <button id="clearForm" type="button" class="bg-slate-100 p-2 rounded-lg">Reset</button>
+            </div>
+          </form>
+
+          <div class="mt-6 text-sm text-slate-500">
+            <p>Data tersimpan aman di akunmu (Firestore). Bisa diakses dari device manapun.</p>
+          </div>
+
+          <div class="mt-4 flex gap-2">
+            <button id="exportXlsx" class="bg-green-600 text-white p-2 rounded-lg flex-1">Ekspor ke Excel (.xlsx)</button>
+            <button id="importXlsx" class="bg-amber-400 text-white p-2 rounded-lg ml-2">Impor Excel</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- summary + table -->
+      <section class="lg:col-span-2">
+        <div class="bg-white rounded-2xl p-6 shadow-sm mb-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-lg">Ringkasan</h2>
+            <div class="text-sm text-slate-500">Filter: <input id="filterText" placeholder="Cari kategori atau catatan..." class="ml-2 p-1 border rounded-md"></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-lg bg-slate-50">
+              <div class="text-sm text-slate-500">Total Pemasukan</div>
+              <div id="totalIncome" class="text-xl font-bold mt-1">Rp 0</div>
+            </div>
+            <div class="p-4 rounded-lg bg-slate-50">
+              <div class="text-sm text-slate-500">Total Pengeluaran</div>
+              <div id="totalExpense" class="text-xl font-bold mt-1">Rp 0</div>
+            </div>
+            <div class="p-4 rounded-lg bg-slate-50">
+              <div class="text-sm text-slate-500">Saldo (Income - Expense)</div>
+              <div id="balance" class="text-xl font-bold mt-1">Rp 0</div>
+            </div>
+          </div>
+
+          <div class="mt-6" style="height:260px">
+            <canvas id="chart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold">Daftar Transaksi</h3>
+            <div class="text-sm text-slate-500">Urut: 
+              <select id="sortSelect" class="ml-2 p-1 border rounded-md">
+                <option value="date_desc">Terbaru</option>
+                <option value="date_asc">Terlama</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="text-sm text-slate-500 border-b">
+                <tr>
+                  <th class="py-2">Tanggal</th>
+                  <th>Kategori</th>
+                  <th>Catatan</th>
+                  <th class="text-right">Jumlah (Rp)</th>
+                  <th class="text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="text-sm"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-6 text-center text-sm text-slate-500">Buat olehmu · Aman dengan Firebase Auth & Firestore</footer>
+  </div>
+
+  <!-- popup sukses -->
+  <div id="popupSuccess" class="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg hidden">
+    <span id="popupMsg">✅ Data berhasil disimpan</span>
+  </div>
+
+  <!-- konfirmasi hapus -->
+  <div id="confirmModal" class="fixed inset-0 bg-black/40 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl p-6 w-80 shadow-lg">
+      <h3 class="font-semibold mb-2">Konfirmasi</h3>
+      <p class="text-sm text-slate-600">Apakah kamu yakin ingin menghapus data ini?</p>
+      <div class="mt-4 flex justify-end gap-2">
+        <button id="cancelDel" class="px-3 py-1 rounded bg-slate-200">Batal</button>
+        <button id="confirmDel" class="px-3 py-1 rounded bg-red-500 text-white">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { setupImportExcel, setupSorting } from "./importExcel.js";
+
+    // 🔧 config Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCoju4Cpzw1cyyWpETMPFCVXR-n5hwaGck",
+      authDomain: "expense-tracker-2211f.firebaseapp.com",
+      projectId: "expense-tracker-2211f",
+      storageBucket: "expense-tracker-2211f.firebasestorage.app",
+      messagingSenderId: "195608261241",
+      appId: "1:195608261241:web:7a49b2f6cf038393649aa8",
+      measurementId: "G-Z0SJRN20Z8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // DOM helpers
+    const qs = (s) => document.querySelector(s);
+    const qsa = (s) => document.querySelectorAll(s);
+    const fmtRp = (n) => "Rp " + Number(n).toLocaleString("id-ID");
+
+    // DOM elements
+    const entryForm = qs("#entryForm");
+    const dateEl = qs("#date");
+    const typeEl = qs("#type");
+    const categoryEl = qs("#category");
+    const amountEl = qs("#amount");
+    const noteEl = qs("#note");
+    const tableBody = qs("#tableBody");
+    const totalIncomeEl = qs("#totalIncome");
+    const totalExpenseEl = qs("#totalExpense");
+    const balanceEl = qs("#balance");
+    const exportBtn = qs("#exportXlsx");
+    const filterText = qs("#filterText");
+    const sortSelect = qs("#sortSelect");
+    const chartCtx = qs("#chart");
+    const userControls = qs("#userControls");
+    const popup = qs("#popupSuccess");
+    const popupMsg = qs("#popupMsg");
+    const confirmModal = qs("#confirmModal");
+    const confirmBtn = qs("#confirmDel");
+    const cancelBtn = qs("#cancelDel");
+
+    let entries = [];
+    let chartInstance = null;
+    let currentUser = null;
+    let deleteId = null;
+
+    const entriesCol = (user) => collection(db, "users", user.uid, "entries");
+
+    async function loadEntries() {
+      if (!currentUser) return;
+      const snapshot = await getDocs(entriesCol(currentUser));
+      entries = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      render();
+    }
+    async function addEntry(entry) {
+      await addDoc(entriesCol(currentUser), entry);
+      await loadEntries();
+    }
+    async function updateEntry(id, updated) {
+      await updateDoc(doc(db, "users", currentUser.uid, "entries", id), updated);
+      await loadEntries();
+    }
+    async function deleteEntry(id) {
+      await deleteDoc(doc(db, "users", currentUser.uid, "entries", id));
+      await loadEntries();
+    }
+
+    function showPopup(msg) {
+      popupMsg.textContent = msg;
+      popup.classList.remove("hidden");
+      setTimeout(() => popup.classList.add("hidden"), 2000);
+    }
+
+    function renderUserControls() {
+      if (currentUser) {
+        userControls.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="text-slate-600">${currentUser.email}</div>
+            <button id="logoutBtn" class="text-sm bg-slate-100 p-2 rounded-md">Keluar</button>
+          </div>`;
+        qs("#logoutBtn").addEventListener("click", () => {
+          signOut(auth).then(() => {
+            window.location.href = "index.html";
+          });
+        });
+      } else {
+        userControls.innerHTML = `
+          <button id="loginGoogle" class="bg-red-500 text-white p-2 rounded-md">Login dengan Google</button>`;
+        qs("#loginGoogle").addEventListener("click", () =>
+          signInWithPopup(auth, provider)
+        );
+      }
+    }
+
+    function render() {
+      const filter = filterText.value.trim().toLowerCase();
+      let list = entries.slice();
+      if (filter)
+        list = list.filter(
+          (e) =>
+            (e.category || "").toLowerCase().includes(filter) ||
+            (e.note || "").toLowerCase().includes(filter)
+        );
+      // Sorting is handled by setupSorting
+      tableBody.innerHTML = "";
+      for (const e of list) {
+        const tr = document.createElement("tr");
+        tr.className = "border-b";
+        const am = Number(e.amount || 0);
+        tr.innerHTML = `
+          <td class="py-2">${e.date}</td>
+          <td>${e.category || "-"}</td>
+          <td>${e.note || "-"}</td>
+          <td class="text-right font-medium">${
+            e.type === "income" ? fmtRp(am) : "-" + fmtRp(am)
+          }</td>
+          <td class="text-right">
+            <button data-id="${e.id}" class="editBtn text-indigo-600 mr-2">Edit</button>
+            <button data-id="${e.id}" class="delBtn text-red-600">Hapus</button>
+          </td>`;
+        tableBody.appendChild(tr);
+      }
+      qsa(".delBtn").forEach((b) =>
+        b.addEventListener("click", () => {
+          deleteId = b.dataset.id;
+          confirmModal.classList.remove("hidden");
+        })
+      );
+      qsa(".editBtn").forEach((b) =>
+        b.addEventListener("click", () => {
+          const e = entries.find((x) => x.id === b.dataset.id);
+          if (!e) return;
+          dateEl.value = e.date;
+          typeEl.value = e.type;
+          categoryEl.value = e.category;
+          amountEl.value = e.amount;
+          noteEl.value = e.note;
+          entryForm.dataset.editId = e.id;
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        })
+      );
+
+      const income = entries
+        .filter((x) => x.type === "income")
+        .reduce((s, x) => s + Number(x.amount || 0), 0);
+      const expense = entries
+        .filter((x) => x.type === "expense")
+        .reduce((s, x) => s + Number(x.amount || 0), 0);
+      totalIncomeEl.textContent = fmtRp(income);
+      totalExpenseEl.textContent = fmtRp(expense);
+      balanceEl.textContent = fmtRp(income - expense);
+
+      const byDate = {};
+      for (const e of entries) {
+        const d = e.date || "Unknown";
+        if (!byDate[d]) byDate[d] = 0;
+        byDate[d] += e.type === "income" ? Number(e.amount || 0) : -Number(e.amount || 0);
+      }
+      const labels = Object.keys(byDate).sort((a, b) => new Date(a) - new Date(b));
+      const values = labels.map((l) => byDate[l]);
+      if (!chartInstance) {
+        chartInstance = new Chart(chartCtx, {
+          type: "bar",
+          data: { labels, datasets: [{ label: "Saldo per Tanggal", data: values }] },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+          },
+        });
+      } else {
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets[0].data = values;
+        chartInstance.update();
+      }
+    }
+
+    entryForm.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const data = {
+        date: dateEl.value || new Date().toISOString().slice(0, 10),
+        type: typeEl.value,
+        category: categoryEl.value.trim(),
+        amount: Math.abs(Number(amountEl.value || 0)),
+        note: noteEl.value.trim(),
+      };
+      if (entryForm.dataset.editId) {
+        await updateEntry(entryForm.dataset.editId, data);
+        delete entryForm.dataset.editId;
+        showPopup("✅ Data berhasil di edit");
+      } else {
+        await addEntry(data);
+        showPopup("✅ Data berhasil disimpan");
+      }
+      entryForm.reset();
+    });
+
+    qs("#clearForm").addEventListener("click", () => {
+      entryForm.reset();
+      delete entryForm.dataset.editId;
+    });
+    exportBtn.addEventListener("click", () => {
+      if (!entries.length) {
+        alert("Belum ada data");
+        return;
+      }
+      const ws_data = [["Tanggal", "Tipe", "Kategori", "Catatan", "Jumlah"]];
+      for (const e of entries)
+        ws_data.push([e.date, e.type, e.category || "", e.note || "", Number(e.amount || 0)]);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      XLSX.utils.book_append_sheet(wb, ws, "Transaksi");
+      XLSX.writeFile(wb, (currentUser ? currentUser.email : "data") + "_transaksi.xlsx");
+    });
+    filterText.addEventListener("input", render);
+
+    confirmBtn.addEventListener("click", async () => {
+      if (deleteId) {
+        await deleteEntry(deleteId);
+        showPopup("🗑️ Data berhasil dihapus");
+        deleteId = null;
+      }
+      confirmModal.classList.add("hidden");
+    });
+    cancelBtn.addEventListener("click", () => {
+      confirmModal.classList.add("hidden");
+      deleteId = null;
+    });
+
+    // Setup import Excel and sorting
+    setupImportExcel(entries, async () => {
+      // Save entries to Firestore
+      for (const entry of entries) {
+        if (!entry.id) entry.id = uid();
+        await addEntry(entry);
+      }
+    }, render);
+
+    setupSorting(sortSelect, render, entries);
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      renderUserControls();
+      if (user) {
+        dateEl.value = new Date().toISOString().slice(0, 10);
+        loadEntries();
+      } else {
+        entries = [];
+        render();
+      }
+    });
+  </script>
+</body>
+</html>

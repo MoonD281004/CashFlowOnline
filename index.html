@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login - Expense & Income Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+  <div class="bg-white rounded-2xl p-8 shadow-lg w-full max-w-md">
+    <div class="text-center mb-6">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">¥</div>
+      <h1 class="text-2xl font-extrabold">Pencatatan Pemasukan & Pengeluaran</h1>
+      <p class="text-sm text-slate-500">Masuk untuk melanjutkan</p>
+    </div>
+
+    <div class="space-y-4">
+      <input id="authEmail" placeholder="Email" class="w-full p-3 border rounded-lg" type="email">
+      <input id="authPassword" placeholder="Password" class="w-full p-3 border rounded-lg" type="password">
+      <input id="authPasswordConfirm" placeholder="Konfirmasi Password (daftar)" class="w-full p-3 border rounded-lg hidden" type="password">
+
+      <div class="flex gap-2">
+        <button id="authLoginBtn" class="flex-1 bg-indigo-600 text-white p-3 rounded-lg font-semibold">Masuk</button>
+        <button id="authToggleRegister" class="flex-1 border p-3 rounded-lg">Daftar</button>
+      </div>
+
+      <button id="googleLoginBtn" class="w-full border p-3 rounded-lg flex items-center justify-center gap-2">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Login dengan Google
+      </button>
+
+      <div class="text-xs text-slate-500 text-center">
+        Buat akun agar data terpisah per pengguna.<br>
+        <strong>Demo menggunakan Firebase Authentication</strong>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + Auth logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { 
+      getAuth, 
+      GoogleAuthProvider, 
+      signInWithPopup, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword 
+    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+    // 🔧 Config Firebase kamu
+    const firebaseConfig = {
+      apiKey: "AIzaSyCoju4Cpzw1cyyWpETMPFCVXR-n5hwaGck",
+      authDomain: "expense-tracker-2211f.firebaseapp.com",
+      projectId: "expense-tracker-2211f",
+      storageBucket: "expense-tracker-2211f.firebasestorage.app",
+      messagingSenderId: "195608261241",
+      appId: "1:195608261241:web:7a49b2f6cf038393649aa8",
+      measurementId: "G-Z0SJRN20Z8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Elements
+    const authEmail = document.querySelector('#authEmail');
+    const authPassword = document.querySelector('#authPassword');
+    const authPasswordConfirm = document.querySelector('#authPasswordConfirm');
+    const authLoginBtn = document.querySelector('#authLoginBtn');
+    const authToggleRegister = document.querySelector('#authToggleRegister');
+    const googleLoginBtn = document.querySelector('#googleLoginBtn');
+
+    let isRegisterMode = false;
+
+    // Toggle register <-> login
+    authToggleRegister.addEventListener('click', ()=>{
+      isRegisterMode = !isRegisterMode;
+      if(isRegisterMode){
+        authPasswordConfirm.classList.remove('hidden');
+        authLoginBtn.textContent='Daftar';
+      } else {
+        authPasswordConfirm.classList.add('hidden');
+        authLoginBtn.textContent='Masuk';
+      }
+    });
+
+    // Email/Password login & register
+    authLoginBtn.addEventListener('click', async ()=>{
+      const email = (authEmail.value||'').trim().toLowerCase();
+      const pass = authPassword.value||'';
+      if(!email || !pass){ alert('Isi email & password'); return }
+
+      try {
+        if(isRegisterMode){
+          const passConfirm = authPasswordConfirm.value||'';
+          if(pass !== passConfirm){ alert('Konfirmasi password tidak cocok'); return }
+          await createUserWithEmailAndPassword(auth, email, pass);
+        } else {
+          await signInWithEmailAndPassword(auth, email, pass);
+        }
+        // Redirect setelah sukses
+        window.location.href = 'PerhitunganPengeluaranPublish.html';
+      } catch(err){ 
+        alert(err.message || 'Gagal otentikasi'); 
+      }
+    });
+
+    // Google login
+    googleLoginBtn.addEventListener('click', async ()=>{
+      try {
+        await signInWithPopup(auth, provider);
+        window.location.href = 'PerhitunganPengeluaranPublish.html';
+      } catch(e) {
+        alert('Login Google gagal: ' + e.message);
+      }
+    });
+  </script>
+</body>
+</html>
